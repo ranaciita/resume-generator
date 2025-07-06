@@ -10,18 +10,21 @@ function App() {
   const [gitUsername, setGitUsername] = useState("");
   const [leetUsername, setLeetUsername] = useState("");
 
-  // -------------- User Move Handlers --------------
+  // -------------- Fetched API Data: validity --------------
+  const [validGitUsername, setValidGitUsername] = useState(false);
+  const [validLeetUsername, setValidLeetUsername] = useState(false);
+  const [validFileUpload, setValidFileUpload] = useState(false);
+
+  // -------------- Fetched API Data: resume generation --------------
+
+  // -------------- File Upload Handler --------------
   const handleFileChange = (e) => {
-
     const selectedFile = e.target.files[0];
-
     // if a file is selected
     if (selectedFile) {
       const fileName = selectedFile.name.toLowerCase();
-
       // if ends with .json or .csv
       if (fileName.endsWith(".json") || fileName.endsWith(".csv")) {
-
         // assign valid file
         setFile(selectedFile);
         console.log("File object:", selectedFile);
@@ -34,35 +37,132 @@ function App() {
     }
   };
 
+  // -------------- API call Handlers --------------
   async function generatePressed() {
+    // Reset errors/validations
+    setGitError(""); 
+    setLeetError("");
+    setValidGitUsername(false);
+    setValidLeetUsername(false);
+    setValidFileUpload(false);
 
-    // reset errors
-    setGitError(""); setLeetError("");
-
-    // if all provided
-    if (gitUsername && leetUsername && file) {
-      setGitError("User not found!");
-      setLeetError("User not found!");
+    // check if inputs present
+    if (!gitUsername || !leetUsername || !file) {
+      if (!gitUsername) setGitError("Please enter your Github username.");
+      if (!leetUsername) setLeetError("Please enter your Leetcode username.");
+      if (!file) alert("Please upload a .json or .csv file.");
+      return;
     }
-    
-    // otherwise show corresponding errors
-    else {
-      if (!gitUsername) {
-        setGitError("Please enter your Github username.");
-      }
-      if (!leetUsername) {
-        setLeetError("Please enter your Leetcode username.");
-      }
-      if (!file){
-        alert("Please upload a .json or .csv file.");
-      }
+
+    // validate usernames and given file
+    const [gitValid, leetValid, fileValid] = await Promise.all([
+      fetchGitHub(),
+      fetchLeetCode(),
+      fetchLinkedinValidity(),
+    ]);
+
+    // if all validated, generate resume
+    if (gitValid && leetValid && fileValid) {
+      await generateResume();
+    } else {
+      return;
     }
   }
+
+  // GitHub username validation
+  const fetchGitHub = async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/github/${gitUsername}`
+      );
+      if (!res.ok) {
+        setGitError("Username not found!");
+        return false;
+      }
+      setValidGitUsername(true);
+      return true;
+    } catch (err) {
+      setGitError("Error connecting to GitHub API");
+      return false;
+    }
+  };
+
+  // LeetCode username validation
+  const fetchLeetCode = async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/leetcode/${leetUsername}`
+      );
+      if (!res.ok) {
+        setLeetError("Username not found!");
+        return false;
+      }
+      setValidLeetUsername(true);
+      return true;
+    } catch (err) {
+      setLeetError("Error connecting to LeetCode API");
+      return false;
+    }
+  };
+
+  // LinkedIn file validation
+  const fetchLinkedinValidity = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`http://localhost:5000/api/linkedin`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        alert("Uploaded file is not a valid LinkedIn JSON/CSV");
+        return false;
+      }
+
+      setValidFileUpload(true);
+      return true;
+    } catch (err) {
+      alert("Error validating LinkedIn file");
+      return false;
+    }
+  };
+
+  // Resume generation via backend
+  const generateResume = async () => {
+    /*try {
+    const formData = new FormData();
+    formData.append("githubUsername", gitUsername);
+    formData.append("leetcodeUsername", leetUsername);
+    formData.append("linkedinFile", file);
+
+    const res = await fetch(`http://localhost:5000/api/resume/pdf`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      alert("Failed to generate resume.");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "resume.pdf";
+    link.click();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Error generating resume PDF");
+  }
+    */
+  };
 
   // -------------- Page Body --------------
   return (
     <div className="bg-gradient-to-bl from-slate-700 to-slate-950 w-screen h-screen font-mono text-white text-sm font-medium flex justify-center items-center">
-      
       <div className="justify-self-center p-10 space-y-8 bg-white/5 rounded-xl shadow-md shadow-black/30 border border-white/10">
         <p className="text-lg"> Resume-Generator</p>
 
