@@ -6,8 +6,7 @@ import os
 
 class LinkedInService:
     def __init__(self):
-        self.client = OpenAI(api_key="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")
-        #        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def extract(self, file):
         if not file:
